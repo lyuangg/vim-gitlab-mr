@@ -24,6 +24,10 @@ Plug 'lyuangg/vim-gitlab-mr'
 
 ```vim
 let g:gitlab_mr_target_branch = 'main'
+
+" Optional: auto-open after MR creation
+let g:gitlab_mr_create_open_browser = 1   " open MR in browser
+let g:gitlab_mr_create_open_diffview = 1  " open diffview
 ```
 
 ## Usage

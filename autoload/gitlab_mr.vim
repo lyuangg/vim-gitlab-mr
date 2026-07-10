@@ -442,6 +442,23 @@ function! gitlab_mr#create(...) abort
     echohl ErrorMsg | echom '[gitlab-mr] ' . l:out | echohl None
   else
     echom '[gitlab-mr] ' . substitute(l:out, '\n', ' ', 'g')
+
+    " Post-creation actions
+    let l:iid = substitute(l:out, '.*/merge_requests/\([0-9]\+\).*', '\1', '')
+    if l:iid !~# '^\d\+$'
+      let l:iid = s:resolve_mr_id('')
+    endif
+    if !empty(l:iid)
+      if g:gitlab_mr_create_open_diffview
+        call gitlab_mr#diffview(l:iid)
+      endif
+      if g:gitlab_mr_create_open_browser
+        let l:url = matchstr(l:out, 'https\?://[^ ]*')
+        if !empty(l:url)
+          call system(has('mac') ? 'open ' . shellescape(l:url) : 'xdg-open ' . shellescape(l:url) . ' &')
+        endif
+      endif
+    endif
   endif
 endfunction
 
