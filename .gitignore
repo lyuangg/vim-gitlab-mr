@@ -1,0 +1,16 @@
+# Vim swap/backup
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Vim views
+.vim/
+
+# doc tags (generated)
+doc/tags
+
+# Claude Code
+.claude/
