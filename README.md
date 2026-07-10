@@ -47,7 +47,7 @@ Omit `[id]` to act on the MR for the current branch.
 ### Keymap
 
 ```vim
-nmap <leader>gm <Plug>(gitlab-mr-list)
+nmap <leader>gM <Plug>(gitlab-mr-list)
 ```
 
 ### Layout
