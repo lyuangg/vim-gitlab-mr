@@ -1021,18 +1021,19 @@ function! s:dv_find_existing_tab() abort
 endfunction
 
 function! s:dv_create_panes_below(id) abort
-  " Resize MR list to 40%, create panes below
   let l:mr_win = bufwinnr('__gitlab_mr_list__')
-  if l:mr_win != -1
-    execute l:mr_win . 'wincmd w'
-    execute 'resize ' . (&lines * 30 / 100)
-  endif
 
   botright new
   call s:dv_panes_reset_state(a:id)
   call s:dv_panes_create(a:id)
   call s:dv_panes_show_loading()
   call s:dv_panes_setup_ui()
+
+  " Shrink MR list to 30%, diffview panes take the rest
+  if l:mr_win != -1
+    call win_execute(win_getid(l:mr_win), 'resize ' . (&lines * 30 / 100))
+  endif
+
   redraw!
 endfunction
 
