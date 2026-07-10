@@ -5,127 +5,112 @@ A Vim plugin to manage GitLab Merge Requests interactively, powered by the
 
 ## Requirements
 
-- [glab CLI](https://gitlab.com/gitlab-org/cli) installed and authenticated (`glab auth login`)
+- [glab CLI](https://gitlab.com/gitlab-org/cli) installed and authenticated
 - Vim 8+ or Neovim
 
 ## Installation
 
 **vim-plug**
 ```vim
-Plug 'a123/vim-gitlab-mr'
+Plug 'lyuangg/vim-gitlab-mr'
 ```
 
 **lazy.nvim**
 ```lua
-{ 'a123/vim-gitlab-mr' }
+{ 'lyuangg/vim-gitlab-mr' }
 ```
 
 ## Configuration
 
 ```vim
-" default target branch for MR creation
 let g:gitlab_mr_target_branch = 'main'
 ```
 
-## Commands
+## Usage
 
-| Command            | Description                                       |
-| ------------------ | ------------------------------------------------- |
-| `:MRList [args]`   | List merge requests (passes args to `glab mr list`) |
-| `:MRCreate`        | Create a new MR from the current branch           |
-| `:MRDiffview [id]` | Open MR diff side-by-side in a new tab            |
-| `:MRClose [id]`    | Close an MR                                       |
-| `:MRMerge [id]`    | Merge an MR                                       |
+### Commands
 
-Omit `[id]` to act on the MR associated with the current branch.
+| Command | Description |
+|---------|-------------|
+| `:MRList [args]` | List MRs (args passed to `glab mr list`) |
+| `:MRDiffview [id]` | Open diff view |
+| `:MRCreate` | Create MR from current branch |
+| `:MRClose [id]` | Close an MR |
+| `:MRMerge [id]` | Merge an MR |
+
+Omit `[id]` to act on the MR for the current branch.
 
 ### Keymap
 
 ```vim
-" <leader>gm opens the MR list
 nmap <leader>gm <Plug>(gitlab-mr-list)
 ```
 
-## MR List Buffer
+### Layout
 
-| Key | Action                          |
-| --- | ------------------------------- |
-| `<CR>` / `d` | Open diffview for selected MR |
-| `c`  | Close MR (with confirmation)    |
-| `m`  | Merge MR (with confirmation)    |
-| `n`  | Add a note to the MR            |
-| `L`  | View MR comments / discussions  |
-| `o`  | Open MR in browser              |
-| `r`  | Refresh the list                |
-| `]`  | Next page                       |
-| `[`  | Previous page                   |
-| `q`  | Close the list                  |
+MR list and diffview share the same tab: opening either from the other embeds
+it in-place instead of creating a new tab.
 
-## Diffview (Tree Pane)
+- `:MRList` in a diffview tab → MR list at top (30%), diffview below
+- Enter / `d` in MR list → diffview below MR list (30%/70%)
+- `:MRList` or `:MRDiffview` from a normal tab → new dedicated tab
+- `q` in diffview → close diffview panes, MR list fills tab
 
-The diffview opens in a new tab with a file-tree on the left and two
-side-by-side diff panes on the right (base / source).
+## Key Bindings
 
-| Key | Action                          |
-| --- | ------------------------------- |
-| `<CR>` | Expand / collapse directory  |
-| `?` | Toggle MR metadata overlay       |
-| `t` | Toggle tree / flat file view     |
-| `J` | Scroll diff panes down           |
-| `K` | Scroll diff panes up             |
-| `o` | Open file in editor              |
-| `n` | Add a note to the MR            |
-| `L` | View MR comments / discussions   |
-| `m` | Merge MR (with confirmation)     |
-| `c` | Close MR (with confirmation)     |
-| `r` | Refresh / reload                 |
-| `q` | Close the diffview tab           |
+### MR List
 
-## Diffview (Diff Panes)
+| Key | Action |
+|-----|--------|
+| Enter / `d` | Open diffview |
+| `c` | Close MR |
+| `m` | Merge MR |
+| `n` | Add note |
+| `L` | View comments |
+| `o` | Open in browser |
+| `r` | Refresh |
+| `]` / `[` | Next / prev page |
+| `q` | Close |
 
-Both the base (left) and source (right) panes share the same shortcuts:
+### Diffview Tree Pane
 
-| Key | Action                        |
-| --- | ----------------------------- |
-| `n` | Add a note to the MR          |
-| `L` | View MR comments / discussions |
-| `m` | Merge MR (with confirmation)   |
-| `c` | Close MR (with confirmation)   |
-| `r` | Refresh / reload               |
-| `q` | Close the diffview tab         |
+| Key | Action |
+|-----|--------|
+| Enter | Expand / collapse dir |
+| `?` | Toggle help overlay |
+| `t` | Toggle tree / flat view |
+| `J` / `K` | Scroll diff panes down / up |
+| `o` | Open file in editor |
+| `n` | Add note |
+| `L` | View comments |
+| `m` | Merge MR |
+| `c` | Close MR |
+| `r` | Refresh |
+| `q` | Quit diffview |
 
-## Comments Buffer
+### Diff Panes (base / source)
 
-| Key | Action       |
-| --- | ------------ |
-| `q` | Close window |
+| Key | Action |
+|-----|--------|
+| `n` `L` `m` `c` `r` `q` | Same as tree pane |
 
-Comments are loaded asynchronously. HTML tags in comment bodies are
-stripped automatically — block elements become line breaks, `<li>`
-items become bullet points, and common entities (`&lt;` `&gt;`
-`&amp;` etc.) are decoded.
+### Comments
+
+| Key | Action |
+|-----|--------|
+| `q` | Close |
+
+HTML tags in comments are stripped automatically: block elements become line
+breaks, `<li>` becomes bullet points (`•`), entities are decoded.
 
 ## Examples
 
 ```vim
-" list all open MRs
 :MRList
-
-" list MRs assigned to me
 :MRList --assignee=@me
-
-" create a new MR
-:MRCreate
-
-" open diffview for the MR on the current branch
 :MRDiffview
-
-" open diffview for a specific MR
 :MRDiffview 42
-
-" close the MR on the current branch
+:MRCreate
 :MRClose
-
-" merge a specific MR
 :MRMerge 42
 ```
