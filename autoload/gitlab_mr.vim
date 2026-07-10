@@ -453,7 +453,8 @@ function! gitlab_mr#create(...) abort
         call gitlab_mr#diffview(l:iid)
       endif
       if g:gitlab_mr_create_open_browser
-        let l:url = matchstr(l:out, 'https\?://[^ ]*')
+        let l:url = matchstr(l:out, 'https\?://\S\+')
+        let l:url = substitute(l:url, '[.,;:)]\+$', '', '')
         if !empty(l:url)
           call system(has('mac') ? 'open ' . shellescape(l:url) : 'xdg-open ' . shellescape(l:url) . ' &')
         endif
