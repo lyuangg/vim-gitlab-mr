@@ -433,10 +433,11 @@ function! gitlab_mr#create(...) abort
     call inputrestore()
 
     call inputsave()
-    let l:target = input('Target branch [' . g:gitlab_mr_target_branch . ']: ')
+    let l:target = input('Target branch [' . g:gitlab_mr_target_branch . '] (empty to cancel): ')
     call inputrestore()
     if empty(l:target)
-      let l:target = g:gitlab_mr_target_branch
+      echom '[gitlab-mr] Cancelled.'
+      return
     endif
   endif
 
