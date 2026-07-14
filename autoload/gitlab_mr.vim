@@ -1110,19 +1110,16 @@ endfunction
 function! s:dv_fetch_diff_data(id, tab, mr) abort
   let l:target = a:mr.target_branch
   let l:source = a:mr.source_branch
-
-  call settabvar(a:tab, 'dv_pending', 3)
-
-  let l:fetch_cmd = 'git fetch origin ' . shellescape(l:source) . ' ' . shellescape(l:target) . ' 2>/dev/null && git merge-base origin/' . shellescape(l:target) . ' origin/' . shellescape(l:source) . ' 2>/dev/null || echo FETCH_FAILED'
-  call s:job_start(l:fetch_cmd, function('s:dv_on_fetch_done', [a:tab, l:target]))
-
-  let l:diff_cmd = 'glab mr diff ' . a:id . ' --color=never'
-  call s:job_start(l:diff_cmd, function('s:dv_on_diff_done', [a:tab]))
-
   let l:pid = get(a:mr, 'project_id', 0)
   if l:pid == 0
     let l:pid = s:extract_project_id(get(a:mr, 'web_url', ''))
   endif
+
+  call settabvar(a:tab, 'dv_pending', 2)
+
+  let l:fetch_cmd = 'git fetch origin ' . shellescape(l:source) . ' ' . shellescape(l:target) . ' 2>/dev/null && git merge-base origin/' . shellescape(l:target) . ' origin/' . shellescape(l:source) . ' 2>/dev/null || echo FETCH_FAILED'
+  call s:job_start(l:fetch_cmd, function('s:dv_on_fetch_done', [a:tab, l:target]))
+
   if !empty(l:pid)
     let l:merge_cmd = 'glab api "projects/' . l:pid . '/merge_requests/' . a:id . '?with_merge_status_recheck=true"'
     call s:job_start(l:merge_cmd, function('s:dv_on_merge_status_done', [a:tab]))
@@ -1143,6 +1140,13 @@ function! s:dv_on_fetch_done(tab, fallback_target, status, output, buf) abort
     endif
   endif
   call settabvar(a:tab, 'dv_merge_base', l:base)
+
+  " Run git diff --numstat synchronously after fetch completes.
+  " Output is "adds\tdels\tpath" — unambiguous and reliable.
+  let l:source = gettabvar(a:tab, 'dv_source')
+  let l:numstat = systemlist('git diff --numstat ' . l:base . '...origin/' . shellescape(l:source))
+  call settabvar(a:tab, 'dv_numstat_raw', l:numstat)
+
   let l:pending = gettabvar(a:tab, 'dv_pending') - 1
   call settabvar(a:tab, 'dv_pending', l:pending)
   call s:dv_try_render(a:tab)
@@ -1174,16 +1178,32 @@ function! s:dv_on_merge_status_done(tab, status, output, buf) abort
   call s:dv_try_render(a:tab)
 endfunction
 
+function! s:dv_parse_numstat(raw_lines) abort
+  let l:files = []
+  for l:line in a:raw_lines
+    let l:parts = split(l:line, '\t')
+    if len(l:parts) >= 3 && l:parts[0] =~# '^\d\+$' && l:parts[1] =~# '^\d\+$'
+      call add(l:files, s:dv_file_dict(l:parts[2], str2nr(l:parts[0]), str2nr(l:parts[1])))
+    endif
+  endfor
+  return l:files
+endfunction
+
 function! s:dv_try_render(tab) abort
   if gettabvar(a:tab, 'dv_pending') > 0 | return | endif
 
-  let l:raw = gettabvar(a:tab, 'dv_diff_raw', [])
-  if empty(l:raw)
-    echohl ErrorMsg | echom '[gitlab-mr] Failed to get diff' | echohl None
-    return
+  " Prefer git diff --numstat (reliable tab-separated stats).
+  " Fall back to raw diff parsing if numstat is empty.
+  let l:numstat = gettabvar(a:tab, 'dv_numstat_raw', [])
+  let l:files = s:dv_parse_numstat(l:numstat)
+  if empty(l:files)
+    let l:raw = gettabvar(a:tab, 'dv_diff_raw', [])
+    if empty(l:raw)
+      echohl ErrorMsg | echom '[gitlab-mr] Failed to get diff' | echohl None
+      return
+    endif
+    let l:files = s:dv_collect_files(l:raw)
   endif
-
-  let l:files = s:dv_collect_files(l:raw)
   if empty(l:files)
     echom '[gitlab-mr] No changed files.'
     return
