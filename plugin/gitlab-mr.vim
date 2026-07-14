@@ -11,7 +11,7 @@ nnoremap <silent> <Plug>(gitlab-mr-list) :<C-u>MRList<CR>
 nmap <leader>gM <Plug>(gitlab-mr-list)
 
 command! -nargs=? -complete=dir MRList  call gitlab_mr#list(<q-args>)
-command! -nargs=?              MRCreate call gitlab_mr#create(<q-args>)
+command! -nargs=*              MRCreate call gitlab_mr#create(<f-args>)
 command! -nargs=?              MRClose call gitlab_mr#close(<q-args>)
 command! -nargs=?              MRDiffview call gitlab_mr#diffview(<q-args>)
 command! -nargs=?              MRMerge call gitlab_mr#merge(<q-args>)

@@ -405,9 +405,21 @@ function! gitlab_mr#create(...) abort
     return
   endif
 
-  if a:0 > 0 && !empty(a:1)
+  " Parse extra CLI args (e.g. --wip) and optional target branch
+  let l:extra_args = []
+  let l:target = ''
+  for l:arg in a:000
+    if l:arg =~# '^--'
+      call add(l:extra_args, l:arg)
+    elseif empty(l:target)
+      let l:target = l:arg
+    else
+      call add(l:extra_args, l:arg)
+    endif
+  endfor
+
+  if !empty(l:target)
     " direct mode: use argument as target, auto-fill from commits
-    let l:target = a:1
     let l:title = ''
     let l:desc = ''
   else
@@ -437,6 +449,10 @@ function! gitlab_mr#create(...) abort
     if !empty(l:desc)
       let l:cmd .= ' --description ' . shellescape(l:desc)
     endif
+  endif
+
+  if !empty(l:extra_args)
+    let l:cmd .= ' ' . join(map(copy(l:extra_args), 'shellescape(v:val)'))
   endif
 
   redraw!
