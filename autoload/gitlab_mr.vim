@@ -119,7 +119,11 @@ function! s:job_start(cmd, handler) abort
 endfunction
 
 function! s:job_kill_buf(buf) abort
-  for [l:id, l:info] in items(s:pending)
+  " Iterate over a snapshot of keys — removing entries while iterating
+  " items() can cause Vim to skip entries, leaving stale callbacks that
+  " later overwrite content of the *next* file being loaded.
+  for l:id in keys(s:pending)
+    let l:info = s:pending[l:id]
     if l:info.buf == a:buf
       try
         call job_stop(ch_getjob(l:info.ch))
@@ -686,9 +690,8 @@ function! s:dv_render() abort
   call cursor(min([l:saved, len(l:lines)]), 1)
 endfunction
 
-function! s:dv_fill_pane(win_id, content, ok, file_path, suffix) abort
+function! s:dv_fill_pane_content(win_id, content, ok, file_path, suffix) abort
   call win_gotoid(a:win_id)
-  diffoff
   setlocal modifiable
   silent! %d _
   if a:ok | call setline(1, a:content) | else | call setline(1, '') | endif
@@ -698,66 +701,31 @@ function! s:dv_fill_pane(win_id, content, ok, file_path, suffix) abort
     execute 'setlocal filetype=' . fnamemodify(a:file_path, ':e')
   endif
   setlocal nomodifiable
-  diffthis
 endfunction
 
 function! s:dv_load_file(file_path) abort
-  " UI: prepare loading state
-  let l:tab = tabpagenr()
-  call settabvar(l:tab, 'dv_load_pending', 2)
-  call settabvar(l:tab, 'dv_load_file_path', a:file_path)
-
-  " Data: fetch old and new file contents
-  call s:dv_fetch_file_content(a:file_path, l:tab)
-endfunction
-
-function! s:dv_fetch_file_content(file_path, tab) abort
   let l:source = t:dv_source
   let l:base   = t:dv_merge_base
+  let l:target = get(t:dv_mr_data, 'target_branch', '')
 
-  call s:job_kill_buf(bufnr('%'))
-
+  " --- fetch old content (merge-base, fallback to target branch) ---
   let l:old_cmd = 'git show ' . l:base . ':' . shellescape(a:file_path) . ' 2>/dev/null'
-  call s:job_start(l:old_cmd, function('s:dv_on_old_loaded', [a:tab]))
+  if !empty(l:target)
+    let l:old_cmd .= ' || git show origin/' . shellescape(l:target) . ':' . shellescape(a:file_path) . ' 2>/dev/null'
+  endif
+  let l:old = systemlist(l:old_cmd)
+  let l:old_ok = v:shell_error == 0
 
+  " --- fetch new content (source branch) ---
   let l:new_cmd = 'git show origin/' . l:source . ':' . shellescape(a:file_path) . ' 2>/dev/null'
-  call s:job_start(l:new_cmd, function('s:dv_on_new_loaded', [a:tab]))
-endfunction
+  let l:new = systemlist(l:new_cmd)
+  let l:new_ok = v:shell_error == 0
 
-function! s:dv_on_old_loaded(tab, status, output, buf) abort
-  call settabvar(a:tab, 'dv_load_old', a:output)
-  call settabvar(a:tab, 'dv_load_old_ok', a:status == 0)
-  let l:pending = gettabvar(a:tab, 'dv_load_pending') - 1
-  call settabvar(a:tab, 'dv_load_pending', l:pending)
-  call s:dv_try_fill_panes(a:tab)
-endfunction
+  " --- fill panes ---
+  call s:dv_fill_pane_content(t:dv_win_old, l:old, l:old_ok, a:file_path, ' (base)')
+  call s:dv_fill_pane_content(t:dv_win_new, l:new, l:new_ok, a:file_path, ' (source)')
 
-function! s:dv_on_new_loaded(tab, status, output, buf) abort
-  call settabvar(a:tab, 'dv_load_new', a:output)
-  call settabvar(a:tab, 'dv_load_new_ok', a:status == 0)
-  let l:pending = gettabvar(a:tab, 'dv_load_pending') - 1
-  call settabvar(a:tab, 'dv_load_pending', l:pending)
-  call s:dv_try_fill_panes(a:tab)
-endfunction
-
-function! s:dv_try_fill_panes(tab) abort
-  if gettabvar(a:tab, 'dv_load_pending') > 0 | return | endif
-
-  let l:tree_win = gettabvar(a:tab, 'dv_win_tree')
-  if l:tree_win == 0 | return | endif
-
-  call win_execute(l:tree_win, 'call s:dv_fill_panes_from_job(' . a:tab . ')')
-endfunction
-
-function! s:dv_fill_panes_from_job(tab) abort
-  let l:file_path = t:dv_load_file_path
-  let l:old    = t:dv_load_old
-  let l:old_ok = t:dv_load_old_ok
-  let l:new    = t:dv_load_new
-  let l:new_ok = t:dv_load_new_ok
-
-  call s:dv_fill_pane(t:dv_win_old, l:old, l:old_ok, l:file_path, ' (base)')
-  call s:dv_fill_pane(t:dv_win_new, l:new, l:new_ok, l:file_path, ' (source)')
+  diffupdate
   call win_gotoid(t:dv_win_tree)
   redraw!
 endfunction
@@ -946,7 +914,6 @@ function! s:dv_panes_reset_state(id) abort
   let t:dv_nodes        = []
   let t:dv_show_tree    = 1
   let t:dv_show_help    = 0
-  let t:dv_load_pending = 0
   let t:dv_pending      = 0
 endfunction
 
@@ -1003,6 +970,12 @@ function! s:dv_panes_create(id) abort
   wincmd h
 
   let &splitright = l:save_sr
+
+  " Establish the diff group between the two content panes.
+  " Once set up it stays intact across file switches — only
+  " :diffupdate is called afterwards to recalculate.
+  call win_execute(t:dv_win_old, 'diffthis')
+  call win_execute(t:dv_win_new, 'diffthis')
 endfunction
 
 function! s:dv_panes_setup_ui() abort
