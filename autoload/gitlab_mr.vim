@@ -463,10 +463,8 @@ function! gitlab_mr#create(...) abort
     endif
   else
     let l:cmd .= ' --title ' . shellescape(l:title)
-    if !empty(l:desc)
-      let l:cmd .= ' --description ' . shellescape(l:desc)
-    endif
   endif
+  let l:cmd .= ' --description ' . shellescape(l:desc)
 
   if !empty(l:extra_args)
     let l:cmd .= ' ' . join(map(copy(l:extra_args), 'shellescape(v:val)'))
