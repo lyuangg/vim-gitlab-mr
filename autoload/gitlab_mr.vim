@@ -6,9 +6,7 @@ let s:pending = {}
 
 function! gitlab_mr#check_glab() abort
   if !executable('glab')
-    echohl ErrorMsg
-    echom '[gitlab-mr] glab CLI not found. Install: https://gitlab.com/gitlab-org/cli'
-    echohl None
+    call s:echo_progress('glab CLI not found. Install: https://gitlab.com/gitlab-org/cli', 'error')
     return v:false
   endif
   return v:true
@@ -21,10 +19,11 @@ function! s:current_branch() abort
   return l:b
 endfunction
 
-function! s:echo_progress(msg) abort
-  let l:text = '[gitlab-mr] ' . a:msg . ' …'
-  echon "\r" . l:text
-  silent echom l:text
+function! s:echo_progress(msg, ...) abort
+  let l:type = a:0 > 0 ? a:1 : 'info'
+  let l:emoji = l:type ==# 'error' ? '❌ ' : l:type ==# 'success' ? '✅ ' : ''
+  echon "\r" . '[gitlab-mr] ' . l:emoji . a:msg
+  silent echom '[gitlab-mr] ' . l:emoji . a:msg
 endfunction
 
 function! s:resolve_mr_id(id) abort
@@ -223,7 +222,7 @@ function! s:mr_fetch(page, flags) abort
 endfunction
 
 function! s:mr_fetch_data(page, flags) abort
-  call s:echo_progress('Loading MRs (page ' . a:page . ')')
+  call s:echo_progress('Loading MRs (page ' . a:page . ') …')
   call s:job_kill_buf(bufnr('%'))
   let l:cmd = 'glab mr list ' . a:flags . ' --page ' . a:page . ' --per-page 20 --output json 2>/dev/null'
   call s:job_start(l:cmd, function('s:mr_on_fetch', [a:page, a:flags]))
@@ -237,7 +236,7 @@ function! s:mr_on_fetch(page, flags, status, output, buf) abort
       call setbufline(a:buf, 1, 'Failed to fetch MR list')
       call setbufvar(a:buf, '&modifiable', 0)
     endif
-    echohl ErrorMsg | echom '[gitlab-mr] Failed to fetch MR list' | echohl None
+    call s:echo_progress('Failed to fetch MR list', 'error')
     return
   endif
 
@@ -254,7 +253,7 @@ function! s:mr_on_fetch(page, flags, status, output, buf) abort
       call setbufline(a:buf, 1, '▌No merge requests found.')
       call setbufvar(a:buf, '&modifiable', 0)
     endif
-    echom '[gitlab-mr] No merge requests found.'
+    call s:echo_progress('No merge requests found.')
     return
   endif
 
@@ -407,7 +406,7 @@ function! gitlab_mr#create(...) abort
 
   let l:branch = s:current_branch()
   if empty(l:branch)
-    echohl ErrorMsg | echom '[gitlab-mr] Not in a git repository' | echohl None
+    call s:echo_progress('Not in a git repository', 'error')
     return
   endif
 
@@ -442,7 +441,7 @@ function! gitlab_mr#create(...) abort
     let l:target = input('Target branch [' . g:gitlab_mr_target_branch . '] (empty to cancel): ')
     call inputrestore()
     if empty(l:target)
-      echom '[gitlab-mr] Cancelled.'
+      call s:echo_progress('Cancelled.')
       return
     endif
   endif
@@ -471,12 +470,12 @@ function! gitlab_mr#create(...) abort
   endif
 
   redraw!
-  call s:echo_progress('Creating MR')
+  call s:echo_progress('Creating MR …')
   let l:out = system(l:cmd . ' 2>&1')
   if v:shell_error
-    echohl ErrorMsg | echom '[gitlab-mr] ' . l:out | echohl None
+    call s:echo_progress(l:out, 'error')
   else
-    echom '[gitlab-mr] ' . substitute(l:out, '\n', ' ', 'g')
+    call s:echo_progress(substitute(l:out, '\n', ' ', 'g'), 'success')
 
     " Post-creation actions
     let l:iid = substitute(l:out, '.*/merge_requests/\([0-9]\+\).*', '\1', '')
@@ -504,7 +503,7 @@ function! s:mr_subcommand(subcmd, id) abort
 
   let l:id = s:resolve_mr_id(a:id)
   if empty(l:id)
-    echohl ErrorMsg | echom '[gitlab-mr] No MR found for current branch' | echohl None
+    call s:echo_progress('No MR found for current branch', 'error')
     return
   endif
 
@@ -515,16 +514,16 @@ function! s:mr_subcommand(subcmd, id) abort
   let l:confirm = input('[gitlab-mr] ' . l:action . ' MR !' . l:id . '? [y/N]: ')
   call inputrestore()
   if l:confirm !~? '^y'
-    echom '[gitlab-mr] Cancelled.'
+    call s:echo_progress('Cancelled.')
     return
   endif
 
-  call s:echo_progress(l:gerund . ' MR !' . l:id)
+  call s:echo_progress(l:gerund . ' MR !' . l:id . ' …')
   let l:out = system('glab mr ' . a:subcmd . ' ' . l:id)
   if v:shell_error
-    echohl ErrorMsg | echom '[gitlab-mr] ' . l:out | echohl None
+    call s:echo_progress(l:out, 'error')
   else
-    echom '[gitlab-mr] ' . l:out
+    call s:echo_progress(l:out, 'success')
   endif
 endfunction
 
@@ -876,7 +875,7 @@ function! s:dv_open_file() abort
   if l:ln < 0 || l:ln >= len(t:dv_types) || t:dv_types[l:ln] !=# 'file' | return | endif
   let l:path = t:dv_paths[l:ln]
   if !filereadable(l:path)
-    echom '[gitlab-mr] File not found: ' . l:path
+    call s:echo_progress('File not found: ' . l:path, 'error')
     return
   endif
   execute 'tabedit ' . fnameescape(l:path)
@@ -889,20 +888,20 @@ function! s:post_note(iid) abort
   if empty(l:comment) | return | endif
   let l:out = system('glab mr note ' . a:iid . ' -m ' . shellescape(l:comment) . ' 2>&1')
   if v:shell_error
-    echohl ErrorMsg | echom '[gitlab-mr] ' . l:out | echohl None
+    call s:echo_progress(l:out, 'error')
   else
-    echom '[gitlab-mr] Comment posted.'
+    call s:echo_progress('Comment posted.', 'success')
   endif
 endfunction
 
 function! s:dv_merge() abort
   let l:ms = exists('t:dv_merge_status') ? t:dv_merge_status : ''
   if l:ms ==# 'cannot_be_merged'
-    echohl ErrorMsg | echom '[gitlab-mr] Cannot merge: conflicts exist' | echohl None
+    call s:echo_progress('Cannot merge: conflicts exist', 'error')
     return
   endif
   if t:dv_mr_data.state ==# 'merged'
-    echohl ErrorMsg | echom '[gitlab-mr] MR is already merged' | echohl None
+    call s:echo_progress('MR is already merged', 'error')
     return
   endif
   call gitlab_mr#merge(t:dv_mr_id)
@@ -910,7 +909,7 @@ endfunction
 
 function! s:dv_close() abort
   if t:dv_mr_data.state ==# 'merged'
-    echohl ErrorMsg | echom '[gitlab-mr] MR is already merged' | echohl None
+    call s:echo_progress('MR is already merged', 'error')
     return
   endif
   call gitlab_mr#close(t:dv_mr_id)
@@ -1072,7 +1071,7 @@ function! gitlab_mr#diffview(id) abort
 
   let l:id = s:resolve_mr_id(a:id)
   if empty(l:id)
-    echohl ErrorMsg | echom '[gitlab-mr] No MR found for current branch' | echohl None
+    call s:echo_progress('No MR found for current branch', 'error')
     return
   endif
 
@@ -1112,7 +1111,7 @@ endfunction
 
 function! s:dv_on_mr_view(id, tab, status, output, buf) abort
   if a:status != 0 || !bufexists(a:buf)
-    echohl ErrorMsg | echom '[gitlab-mr] Failed to fetch MR !' . a:id | echohl None
+    call s:echo_progress('Failed to fetch MR !' . a:id, 'error')
     return
   endif
 
@@ -1121,12 +1120,12 @@ function! s:dv_on_mr_view(id, tab, status, output, buf) abort
   try
     let l:mr = json_decode(join(a:output, ''))
   catch
-    echohl ErrorMsg | echom '[gitlab-mr] Failed to parse MR data' | echohl None
+    call s:echo_progress('Failed to parse MR data', 'error')
     return
   endtry
 
   if type(l:mr) != v:t_dict || empty(l:mr)
-    echohl ErrorMsg | echom '[gitlab-mr] Failed to fetch MR !' . a:id | echohl None
+    call s:echo_progress('Failed to fetch MR !' . a:id, 'error')
     return
   endif
 
@@ -1230,13 +1229,13 @@ function! s:dv_try_render(tab) abort
   if empty(l:files)
     let l:raw = gettabvar(a:tab, 'dv_diff_raw', [])
     if empty(l:raw)
-      echohl ErrorMsg | echom '[gitlab-mr] Failed to get diff' | echohl None
+      call s:echo_progress('Failed to get diff', 'error')
       return
     endif
     let l:files = s:dv_collect_files(l:raw)
   endif
   if empty(l:files)
-    echom '[gitlab-mr] No changed files.'
+    call s:echo_progress('No changed files.')
     return
   endif
 
@@ -1272,7 +1271,7 @@ function! s:dv_render_from_job(tab) abort
   call win_execute(t:dv_win_tree, 'let &l:statusline = printf(''MR #%d  Changes'', t:dv_mr_id)')
 
   redraw!
-  echom '[gitlab-mr] Diff view loaded for MR !' . t:dv_mr_id
+  call s:echo_progress('Diff view loaded for MR !' . t:dv_mr_id, 'success')
 endfunction
 
 " --------------- MR COMMENTS ---------------
@@ -1316,7 +1315,7 @@ function! gitlab_mr#comments(id) abort
   setlocal nomodifiable
   redraw!
 
-  call s:echo_progress('Loading comments for MR !' . l:id)
+  call s:echo_progress('Loading comments for MR !' . l:id . ' …')
   call s:job_kill_buf(bufnr('%'))
   let l:cmd = 'glab mr note list ' . l:id . ' -F json 2>/dev/null'
   call s:job_start(l:cmd, function('s:comments_on_fetch', []))
@@ -1354,7 +1353,7 @@ function! s:comments_render() abort
   let l:status = get(b:, 'comments_status', -1)
 
   if l:status != 0 && empty(l:notes)
-    echohl ErrorMsg | echom '[gitlab-mr] Failed to load comments' | echohl None
+    call s:echo_progress('Failed to load comments', 'error')
   endif
 
   let l:lines = []
