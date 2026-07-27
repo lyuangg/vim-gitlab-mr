@@ -217,7 +217,8 @@ function! s:mr_fetch(page, flags) abort
 endfunction
 
 function! s:mr_fetch_data(page, flags) abort
-  echom '[gitlab-mr] Loading MRs (page ' . a:page . ') …'
+  echon "\r[gitlab-mr] Loading MRs (page " . a:page . ") …\n"
+  silent echom '[gitlab-mr] Loading MRs (page ' . a:page . ') …'
   call s:job_kill_buf(bufnr('%'))
   let l:cmd = 'glab mr list ' . a:flags . ' --page ' . a:page . ' --per-page 20 --output json 2>/dev/null'
   call s:job_start(l:cmd, function('s:mr_on_fetch', [a:page, a:flags]))
@@ -467,7 +468,8 @@ function! gitlab_mr#create(...) abort
   endif
 
   redraw!
-  echom '[gitlab-mr] Creating MR …'
+  echon "\r[gitlab-mr] Creating MR …\n"
+  silent echom '[gitlab-mr] Creating MR …'
   let l:out = system(l:cmd . ' 2>&1')
   if v:shell_error
     echohl ErrorMsg | echom '[gitlab-mr] ' . l:out | echohl None
@@ -515,7 +517,8 @@ function! s:mr_subcommand(subcmd, id) abort
     return
   endif
 
-  echom '[gitlab-mr] ' . l:gerund . ' MR !' . l:id . ' …'
+  echon "\r[gitlab-mr] " . l:gerund . " MR !" . l:id . " …\n"
+  silent echom '[gitlab-mr] ' . l:gerund . ' MR !' . l:id . ' …'
   let l:out = system('glab mr ' . a:subcmd . ' ' . l:id)
   if v:shell_error
     echohl ErrorMsg | echom '[gitlab-mr] ' . l:out | echohl None
@@ -1312,7 +1315,8 @@ function! gitlab_mr#comments(id) abort
   setlocal nomodifiable
   redraw!
 
-  echom '[gitlab-mr] Loading comments for MR !' . l:id . ' …'
+  echon "\r[gitlab-mr] Loading comments for MR !" . l:id . " …\n"
+  silent echom '[gitlab-mr] Loading comments for MR !' . l:id . ' …'
   call s:job_kill_buf(bufnr('%'))
   let l:cmd = 'glab mr note list ' . l:id . ' -F json 2>/dev/null'
   call s:job_start(l:cmd, function('s:comments_on_fetch', []))
