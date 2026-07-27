@@ -22,8 +22,11 @@ endfunction
 function! s:echo_progress(msg, ...) abort
   let l:type = a:0 > 0 ? a:1 : 'info'
   let l:emoji = l:type ==# 'error' ? '❌ ' : l:type ==# 'success' ? '✅ ' : ''
-  echon "\r" . '[gitlab-mr] ' . l:emoji . a:msg
-  silent echom '[gitlab-mr] ' . l:emoji . a:msg
+  if l:type ==# 'error' || l:type ==# 'success'
+    echom '[gitlab-mr] ' . l:emoji . a:msg
+  else
+    echon "\r" . '[gitlab-mr] ' . l:emoji . a:msg
+  endif
 endfunction
 
 function! s:resolve_mr_id(id) abort
