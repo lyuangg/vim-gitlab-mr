@@ -23,7 +23,7 @@ endfunction
 
 function! s:echo_progress(msg) abort
   let l:text = '[gitlab-mr] ' . a:msg . ' …'
-  echon "\r" . l:text . "\n"
+  echon "\r" . l:text
   silent echom l:text
 endfunction
 
