@@ -444,7 +444,17 @@ function! gitlab_mr#create(...) abort
   let l:cmd = printf('glab mr create --yes --source-branch %s --target-branch %s',
         \ shellescape(l:branch), shellescape(l:target))
   if empty(l:title)
-    let l:cmd .= ' --fill'
+    " Generate title from first commit's first line
+    let l:commits = systemlist('git log --format=%s ' . shellescape(l:target) . '..' . shellescape(l:branch) . ' 2>/dev/null')
+    if !v:shell_error && !empty(l:commits) && !empty(l:commits[0])
+      let l:auto_title = trim(l:commits[0])
+      if strchars(l:auto_title) > 100
+        let l:auto_title = strcharpart(l:auto_title, 0, 100)
+      endif
+      let l:cmd .= ' --title ' . shellescape(l:auto_title)
+    else
+      let l:cmd .= ' --title ' . shellescape(l:branch)
+    endif
   else
     let l:cmd .= ' --title ' . shellescape(l:title)
     if !empty(l:desc)
