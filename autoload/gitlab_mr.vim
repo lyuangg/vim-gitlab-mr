@@ -217,7 +217,6 @@ function! s:mr_fetch(page, flags) abort
   call setline(1, '▌Loading…')
   setlocal nomodifiable
   let &l:statusline = 'GitLab MRs'
-  redraw!
 
   " Data: start async fetch
   call s:mr_fetch_data(a:page, a:flags)
@@ -1032,7 +1031,6 @@ function! s:dv_reset_tab(id) abort
   call s:dv_panes_kill_jobs()
   call s:dv_panes_reset_state(a:id)
   call s:dv_panes_show_loading()
-  redraw!
 endfunction
 
 function! s:dv_find_existing_tab() abort
@@ -1056,8 +1054,6 @@ function! s:dv_create_panes_below(id) abort
   if l:mr_win != -1
     call win_execute(win_getid(l:mr_win), 'resize ' . (&lines * 30 / 100))
   endif
-
-  redraw!
 endfunction
 
 function! s:dv_create_standalone_tab(id) abort
@@ -1066,7 +1062,6 @@ function! s:dv_create_standalone_tab(id) abort
   call s:dv_panes_create(a:id)
   call s:dv_panes_show_loading()
   call s:dv_panes_setup_ui()
-  redraw!
 endfunction
 
 function! gitlab_mr#diffview(id) abort
@@ -1316,7 +1311,6 @@ function! gitlab_mr#comments(id) abort
   silent! %d _
   call setline(1, '▌Loading comments…')
   setlocal nomodifiable
-  redraw!
 
   call s:echo_progress('Loading comments for MR !' . l:id . ' …')
   call s:job_kill_buf(bufnr('%'))
