@@ -19,13 +19,31 @@ function! s:current_branch() abort
   return l:b
 endfunction
 
+" Collapse output onto one screen line: multi-line or overlong messages make
+" Vim stop at the hit-enter prompt ("Press ENTER or type command to continue").
+function! s:one_line(msg) abort
+  let l:msg = substitute(a:msg, '\_s\+', ' ', 'g')
+  let l:max = max([20, &columns - 6])
+  if strdisplaywidth(l:msg) <= l:max | return l:msg | endif
+  let l:out = ''
+  let l:width = 0
+  for l:ch in split(l:msg, '\zs')
+    let l:w = strdisplaywidth(l:ch)
+    if l:width + l:w > l:max - 1 | break | endif
+    let l:out .= l:ch
+    let l:width += l:w
+  endfor
+  return l:out . '…'
+endfunction
+
 function! s:echo_progress(msg, ...) abort
   let l:type = a:0 > 0 ? a:1 : 'info'
   let l:emoji = l:type ==# 'error' ? '❌ ' : l:type ==# 'success' ? '✅ ' : ''
+  let l:msg = s:one_line('[gitlab-mr] ' . l:emoji . a:msg)
   if l:type ==# 'error'
-    echom '[gitlab-mr] ' . l:emoji . a:msg
+    echom l:msg
   else
-    echon "\r" . '[gitlab-mr] ' . l:emoji . a:msg
+    echon "\r" . l:msg
   endif
 endfunction
 
@@ -477,7 +495,7 @@ function! gitlab_mr#create(...) abort
   if v:shell_error
     call s:echo_progress(l:out, 'error')
   else
-    call s:echo_progress(substitute(l:out, '\n', ' ', 'g'), 'success')
+    call s:echo_progress(l:out, 'success')
 
     " Post-creation actions
     let l:iid = substitute(l:out, '.*/merge_requests/\([0-9]\+\).*', '\1', '')
