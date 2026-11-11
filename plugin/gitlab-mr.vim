@@ -8,7 +8,6 @@ let g:gitlab_mr_create_open_browser = get(g:, 'gitlab_mr_create_open_browser', 0
 let g:gitlab_mr_create_open_diffview = get(g:, 'gitlab_mr_create_open_diffview', 0)
 
 nnoremap <silent> <Plug>(gitlab-mr-list) :<C-u>MRList<CR>
-nmap <leader>gM <Plug>(gitlab-mr-list)
 
 command! -nargs=? -complete=dir MRList  call gitlab_mr#list(<q-args>)
 command! -nargs=*              MRCreate call gitlab_mr#create(<f-args>)

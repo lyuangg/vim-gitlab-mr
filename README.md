@@ -46,6 +46,8 @@ Omit `[id]` to act on the MR for the current branch.
 
 ### Keymap
 
+No mapping is set by default. Map the plugin yourself, e.g.:
+
 ```vim
 nmap <leader>gM <Plug>(gitlab-mr-list)
 ```
